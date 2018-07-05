@@ -9,32 +9,60 @@ content = "이것은 테스트 계약서\n\n\
 제 1조 계약의 목적\n 별첨하려고\n\n 제 2조 계약의 정의\n별첨하려고 \n\n\
 이상입니다"
 
-pt = re.compile('\n\s*제\s*\d+\s*조')
+pat_prov = '\n\s*제\s*\d+\s*조'
+pat_1st_prov = '제\s*1\s*조'
+pat_next = '\n\n'
+pt = re.compile(pat_prov)
 
-tika = []
-items = pt.finditer(content)
+def __is_body(check_content):
+    return not (("목차" in check_content) or\
+                ("붙임" in check_content) or\
+                ("별첨" in check_content))
+
+docu = []
+docu_idx = [False]
 before = 0
-now_flag = len(content)-1
+now_flag = 0
 pre_flag = 0
+items = pt.finditer(content)
 for item in items:
     now_flag = item.span()[0]+1
-    if re.search('제\s*1\s*조', item.group()):
+    if re.search(pat_1st_prov, item.group()):
         if before > 0:
             pre_content = content[pre_flag:now_flag]
-            cnt_flag = re.search('\n\n', pre_content).span()[0]+1
-            tika.append(content[before:pre_flag+cnt_flag+1])
-            tika.append(content[pre_flag+cnt_flag+1:now_flag])
+            cnt_flag = re.search(pat_next, pre_content).span()[0]+1
+            docu.append(content[before:pre_flag+cnt_flag+1])
+            docu_idx.append(False)
+            split_content = content[pre_flag+cnt_flag+1:now_flag]
+            docu.append(split_content)
+            docu_idx.append(__is_body(split_content))
         else:
-            tika.append(content[before:now_flag])
+            split_content = content[before:now_flag]
+            docu.append(split_content)
+            docu_idx.append(__is_body(split_content))
+            
         before = now_flag
     pre_flag = now_flag
 
 pre_foot = content[now_flag:]
-after = re.search('\n\n', pre_foot).span()[0]+1
-tika.append(content[before:now_flag] + pre_foot[:after])
-tika.append(pre_foot[after:])
+after = re.search(pat_next, pre_foot).span()[0]+1
+docu.append(content[before:now_flag] + pre_foot[:after])
+docu_idx.append(False)
+docu.append(pre_foot[after:])
 
+result = []
+part = ""
 i = 0
-for cnt in tika:
+for part_docu in docu:
+    if docu_idx[i]:
+        result.append(part)
+        result.append(part_docu)
+        part = ""
+    else:
+        part+=part_docu
     i+=1
-    print(i, "======\n", cnt)
+result.append(part)
+
+for item in result:
+    print("================")
+    print(item)
